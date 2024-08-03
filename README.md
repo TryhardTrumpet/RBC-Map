@@ -56,7 +56,7 @@ Full credit for this idea goes to the player "Leprichaun" who created the progra
 
 Additional Credits for the team who made this happen:
 
-Apple OSx Compatibility: ColdFire
+Apple OSx Compatibility: Joseph Lemois
 
 Linux Compatibility: Blaskewitts, Fern Lovebond
 
