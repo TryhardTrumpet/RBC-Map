@@ -53,3 +53,11 @@ Goals:
 Currently, there are 3 versions being worked on simultaneously. Feature testing will be located in the "testing" folder. 
 
 Full credit for this idea goes to the player "Leprichaun" who created the program LIAM2 which is the basis of this project. https://liam2.leprichaunproductions.com/
+
+Additional Credits for the team who made this happen:
+
+Apple OSx Compatibility: ColdFire
+
+Linux Compatibility: Blaskewitts, Fern Lovebond
+
+Design: Shuvi
