@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 0.5.0.py
+# Main 0.5.0.py
 
 """
 This script is for the RBC City Map application, which displays a minimap of the city
