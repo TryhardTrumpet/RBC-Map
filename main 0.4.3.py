@@ -1,4 +1,4 @@
-# Filename: 0.4.2.py
+# Filename: main 0.4.3.py
 
 #!/usr/bin/env python3
 
@@ -29,6 +29,7 @@ Functions:
 """
 
 import sys
+import pickle
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QFrame, QSizePolicy
@@ -59,6 +60,8 @@ class CityMapApp(QMainWindow):
         self.minimap_size = 280  # Size of the minimap
         self.column_start = 0
         self.row_start = 0
+        self.destination = None
+        self.load_destination()
 
         # Create the central widget and main layout
         central_widget = QWidget()
@@ -126,6 +129,7 @@ class CityMapApp(QMainWindow):
 
         set_destination_button = QPushButton('Set Destination')
         set_destination_button.setFixedSize(button_size, 40)
+        set_destination_button.clicked.connect(self.set_destination)  # Connect to set_destination method
         zoom_layout.addWidget(set_destination_button)
 
         left_layout.addLayout(zoom_layout)
@@ -389,6 +393,16 @@ class CityMapApp(QMainWindow):
                 (nearest_transit[1] - self.row_start + 1) * block_size + block_size // 2
             )
 
+        # Draw destination line
+        if self.destination:
+            painter.setPen(QPen(QColor('green'), 3))  # Set pen color to green and width to 3
+            painter.drawLine(
+                (current_x - self.column_start) * block_size + block_size // 2,
+                (current_y - self.row_start) * block_size + block_size // 2,
+                (self.destination[0] - self.column_start) * block_size + block_size // 2,
+                (self.destination[1] - self.row_start) * block_size + block_size // 2
+            )
+
         painter.end()
         self.minimap_label.setPixmap(pixmap)
 
@@ -457,16 +471,34 @@ class CityMapApp(QMainWindow):
         """
         return self.find_nearest_location(x, y, transits_coordinates)
 
-    # Commenting out the set_closest_level method for now
-    # def set_closest_level(self, level):
-    #     """
-    #     Sets the level of closest location to display (1st, 2nd, or 3rd).
-    #
-    #     Args:
-    #         level (int): Level of closest location to display.
-    #     """
-    #     self.closest_level = level
-    #     self.update_minimap()
+    def set_destination(self):
+        """
+        Sets or clears the destination based on the current location on the minimap.
+        """
+        current_x, current_y = self.column_start + self.zoom_level // 2, self.row_start + self.zoom_level // 2
+        if self.destination == (current_x, current_y):
+            self.destination = None  # Clear the destination
+        else:
+            self.destination = (current_x, current_y)  # Set new destination
+        self.save_destination()
+        self.update_minimap()
+
+    def save_destination(self):
+        """
+        Saves the destination to a file using pickle.
+        """
+        with open('testing/destination.pkl', 'wb') as f:
+            pickle.dump(self.destination, f)
+
+    def load_destination(self):
+        """
+        Loads the destination from a file using pickle.
+        """
+        try:
+            with open('testing/destination.pkl', 'rb') as f:
+                self.destination = pickle.load(f)
+        except FileNotFoundError:
+            self.destination = None
 
     def zoom_in(self):
         """
@@ -491,9 +523,9 @@ class CityMapApp(QMainWindow):
         column_name = self.combo_columns.currentText()
         row_name = self.combo_rows.currentText()
         if column_name in columns:
-            self.column_start = columns[column_name]
+            self.column_start = columns[column_name] - self.zoom_level // 2
         if row_name in rows:
-            self.row_start = rows[row_name]
+            self.row_start = rows[row_name] - self.zoom_level // 2
         self.update_minimap()
 
     def mousePressEvent(self, event):
