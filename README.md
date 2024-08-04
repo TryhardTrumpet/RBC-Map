@@ -56,8 +56,10 @@ Full credit for this idea goes to the player "Leprichaun" who created the progra
 
 Additional Credits for the team who made this happen:
 
+Windows: Jonathan Lollis, Justin Solivan
+
 Apple OSx Compatibility: Joseph Lemois
 
 Linux Compatibility: Blaskewitts, Fern Lovebond
 
-Design: Shuvi
+Design and Layout: Shuvi, Blair Wilson
