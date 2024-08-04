@@ -1,6 +1,6 @@
 This is an attempt to create an interactive map coded in Python for use with Vampires, The Dark Alleyway located at https://quiz.ravenblack.net/blood.pl
 Goals:
-  1) Minimap 
+1) Minimap 
       a. Tracks current location from the game (right frame)
      
       b. Tracks nearest pub, bank, and transit.
@@ -34,7 +34,7 @@ Goals:
         iii. Map paints a green line on the map to the destination.
 
      
-  3)Have a website which will allow users to do several things:
+2)Have a website which will allow users to do several things:
   
    a. Add new buildings to the map
 
@@ -42,15 +42,15 @@ Goals:
 
    c. Track targets (ex. hunters)
   
-  5) Store login credentials to quickly and easily switch between characters.
+3) Store login credentials to quickly and easily switch between characters.
   
    a. User data will be stored in a local binary file generated with python's "pickle" module.
 
    b. User data will not be stored on the server at any time for any reason. 
   
-  7) App data stored in MySQL backend.
+4) App data stored in MySQL backend.
 
-Currently, there are 3 versions being worked on simultaneously. Feature testing will be located in the "testing" folder. 
+Currently, there are multiple versions being worked on simultaneously. Feature testing will be located in the "testing" folder. 
 
 Full credit for this idea goes to the player "Leprichaun" who created the program LIAM2 which is the basis of this project. https://liam2.leprichaunproductions.com/
 
