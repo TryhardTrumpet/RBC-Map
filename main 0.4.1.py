@@ -1,13 +1,19 @@
+'''Location level buttons for selecting 1st, 2nd, 3rd closest Tavern, Transit and bank are non-functional
+and will result in a stack buffer overflow.'''
+#!/usr/bin/python3
+#main 0.4.1.py
+
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QFrame, QSizePolicy
 )
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics
+from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics, QPen
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from variables import *
+
 class CityMapApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -111,6 +117,13 @@ class CityMapApp(QMainWindow):
         closest_buttons_layout.addWidget(btn3)
 
         left_layout.addLayout(closest_buttons_layout)
+
+        # Connect closest location buttons
+        self.closest_level = 1
+
+        btn1.clicked.connect(lambda: self.set_closest_level(1))
+        btn2.clicked.connect(lambda: self.set_closest_level(2))
+        btn3.clicked.connect(lambda: self.set_closest_level(3))
 
         # Refresh, Discord, and Website buttons
         action_layout = QHBoxLayout()
@@ -239,12 +252,16 @@ class CityMapApp(QMainWindow):
                 row_name = next((name for name, coord in rows.items() if coord == row_index), None)
 
                 # Draw cell background color
-                if column_index < min(columns.values()) or column_index > max(columns.values()) or row_index < min(rows.values()) or row_index > max(rows.values()):
-                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["edge"])
+                if column_index < min(columns.values()) or column_index > max(columns.values()) or row_index < min(
+                        rows.values()) or row_index > max(rows.values()):
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
+                                     block_size - 2 * border_size, color_map["edge"])
                 elif (column_index % 2 == 1) or (row_index % 2 == 1):
-                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["alley"])
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
+                                     block_size - 2 * border_size, color_map["alley"])
                 else:
-                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["default"])
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
+                                     block_size - 2 * border_size, color_map["default"])
 
                 # Draw labels only at intersections of named streets
                 if column_name and row_name:
@@ -268,11 +285,62 @@ class CityMapApp(QMainWindow):
         for name, (column_index, row_index) in user_buildings_coordinates.items():
             draw_location(column_index + 1, row_index + 1, QColor("purple"), name)
 
+        # Get current location
+        current_x, current_y = self.column_start + self.zoom_level // 2, self.row_start + self.zoom_level // 2
+
+        # Find and draw lines to nearest locations
+        nearest_pub = self.find_nearest_pub(current_x, current_y)[self.closest_level - 1][1]
+        nearest_bank = self.find_nearest_bank(current_x, current_y)[self.closest_level - 1][1]
+        nearest_transit = self.find_nearest_transit(current_x, current_y)[self.closest_level - 1][1]
+
+        painter.setPen(QColor('orange'))
+        painter.setPen(QPen(QColor('orange'), 3))  # Set pen color to orange and width to 3
+        painter.drawLine(
+            (current_x - self.column_start) * block_size + block_size // 2,
+            (current_y - self.row_start) * block_size + block_size // 2,
+            (nearest_pub[0] - self.column_start + 1) * block_size + block_size // 2,
+            (nearest_pub[1] - self.row_start + 1) * block_size + block_size // 2
+        )
+
+        painter.setPen(QPen(QColor('blue'), 3))  # Set pen color to blue and width to 3
+        painter.drawLine(
+            (current_x - self.column_start) * block_size + block_size // 2,
+            (current_y - self.row_start) * block_size + block_size // 2,
+            (nearest_bank[0] - self.column_start + 1) * block_size + block_size // 2,
+            (nearest_bank[1] - self.row_start + 1) * block_size + block_size // 2
+        )
+
+        painter.setPen(QPen(QColor('red'), 3))  # Set pen color to red and width to 3
+        painter.drawLine(
+            (current_x - self.column_start) * block_size + block_size // 2,
+            (current_y - self.row_start) * block_size + block_size // 2,
+            (nearest_transit[0] - self.column_start + 1) * block_size + block_size // 2,
+            (nearest_transit[1] - self.row_start + 1) * block_size + block_size // 2
+        )
+
         painter.end()
         self.minimap_label.setPixmap(pixmap)
 
     def update_minimap(self):
         self.draw_minimap()
+
+    def find_nearest_location(self, x, y, locations):
+        distances = []
+        for loc in locations:
+            lx, ly = loc
+            dist = abs(lx - x) + abs(ly - y)
+            distances.append((dist, (lx, ly)))
+        distances.sort()
+        return distances
+
+    def find_nearest_pub(self, x, y):
+        return self.find_nearest_location(x, y, pubs_coordinates)
+
+    def find_nearest_bank(self, x, y):
+        return self.find_nearest_location(x, y, banks_coordinates)
+
+    def find_nearest_transit(self, x, y):
+        return self.find_nearest_location(x, y, transits_coordinates)
 
     def zoom_in(self):
         if self.zoom_level > 3:

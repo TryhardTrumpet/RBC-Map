@@ -1,15 +1,53 @@
+# Filename: 0.4.2.py
+
+#!/usr/bin/env python3
+
+"""
+RBC City Map Application
+
+This application displays a city map with various features such as zooming,
+tracking nearest locations (pubs, banks, transits), and integrating with a web view.
+
+Classes:
+    CityMapApp(QMainWindow): Main application class for the city map.
+
+Functions:
+    on_webview_load_finished(self): Callback when the web view finishes loading.
+    process_html(self, html): Processes the HTML content from the web view.
+    extract_coordinates_from_html(self, html): Extracts coordinates from HTML content.
+    refresh_webview(self): Refreshes the web view.
+    draw_minimap(self): Draws the minimap with various features.
+    update_minimap(self): Updates the minimap.
+    find_nearest_location(self, x, y, locations): Finds the nearest location from a list of locations.
+    find_nearest_pub(self, x, y): Finds the nearest pub from the current location.
+    find_nearest_bank(self, x, y): Finds the nearest bank from the current location.
+    find_nearest_transit(self, x, y): Finds the nearest transit from the current location.
+    zoom_in(self): Zooms in the minimap.
+    zoom_out(self): Zooms out the minimap.
+    go_to_location(self): Moves the minimap to a selected location.
+    mousePressEvent(self, event): Handles mouse press events on the minimap.
+"""
+
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QFrame, QSizePolicy
 )
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics
+from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics, QPen
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 from variables import *
+
 class CityMapApp(QMainWindow):
+    """
+    Main application class for the RBC City Map.
+    """
+
     def __init__(self):
+        """
+        Initializes the CityMapApp class, sets up the UI, and initializes the minimap.
+        """
         super().__init__()
 
         # Set up the main window
@@ -93,6 +131,7 @@ class CityMapApp(QMainWindow):
         left_layout.addLayout(zoom_layout)
 
         # Closest locations buttons
+        """
         closest_buttons_layout = QHBoxLayout()
 
         btn1 = QPushButton('1st Closest\nLocations')
@@ -111,6 +150,14 @@ class CityMapApp(QMainWindow):
         closest_buttons_layout.addWidget(btn3)
 
         left_layout.addLayout(closest_buttons_layout)
+
+        # Connect closest location buttons
+        self.closest_level = 1
+
+        btn1.clicked.connect(lambda: self.set_closest_level(1))
+        btn2.clicked.connect(lambda: self.set_closest_level(2))
+        btn3.clicked.connect(lambda: self.set_closest_level(3))
+        """
 
         # Refresh, Discord, and Website buttons
         action_layout = QHBoxLayout()
@@ -168,10 +215,18 @@ class CityMapApp(QMainWindow):
         self.update_minimap()
 
     def on_webview_load_finished(self):
+        """
+        Callback function triggered when the web view finishes loading.
+        """
         self.website_frame.page().toHtml(self.process_html)
 
     def process_html(self, html):
-        # Extract the coordinates from the HTML content
+        """
+        Processes the HTML content from the web view to extract coordinates.
+
+        Args:
+            html (str): HTML content of the web page.
+        """
         x_coord, y_coord = self.extract_coordinates_from_html(html)
         if x_coord is not None and y_coord is not None:
             self.column_start = x_coord
@@ -179,6 +234,15 @@ class CityMapApp(QMainWindow):
             self.update_minimap()
 
     def extract_coordinates_from_html(self, html):
+        """
+        Extracts coordinates from the HTML content.
+
+        Args:
+            html (str): HTML content of the web page.
+
+        Returns:
+            tuple: Coordinates (x, y) if found, otherwise (None, None).
+        """
         from bs4 import BeautifulSoup
 
         soup = BeautifulSoup(html, 'html.parser')
@@ -192,9 +256,15 @@ class CityMapApp(QMainWindow):
         return None, None
 
     def refresh_webview(self):
+        """
+        Refreshes the web view.
+        """
         self.website_frame.reload()
 
     def draw_minimap(self):
+        """
+        Draws the minimap with various features such as special locations and lines to nearest locations.
+        """
         pixmap = QPixmap(self.minimap_size, self.minimap_size)
         painter = QPainter(pixmap)
         painter.fillRect(0, 0, self.minimap_size, self.minimap_size, QColor('lightgrey'))
@@ -209,6 +279,15 @@ class CityMapApp(QMainWindow):
         font_metrics = QFontMetrics(font)
 
         def draw_location(column_index, row_index, color, label_text=None):
+            """
+            Draws a location on the minimap.
+
+            Args:
+                column_index (int): Column index of the location.
+                row_index (int): Row index of the location.
+                color (QColor): Color to fill the location.
+                label_text (str, optional): Label text to draw at the location. Defaults to None.
+            """
             x0 = (column_index - self.column_start) * block_size
             y0 = (row_index - self.row_start) * block_size
 
@@ -239,12 +318,16 @@ class CityMapApp(QMainWindow):
                 row_name = next((name for name, coord in rows.items() if coord == row_index), None)
 
                 # Draw cell background color
-                if column_index < min(columns.values()) or column_index > max(columns.values()) or row_index < min(rows.values()) or row_index > max(rows.values()):
-                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["edge"])
+                if column_index < min(columns.values()) or column_index > max(columns.values()) or row_index < min(
+                        rows.values()) or row_index > max(rows.values()):
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
+                                     block_size - 2 * border_size, color_map["edge"])
                 elif (column_index % 2 == 1) or (row_index % 2 == 1):
-                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["alley"])
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
+                                     block_size - 2 * border_size, color_map["alley"])
                 else:
-                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["default"])
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
+                                     block_size - 2 * border_size, color_map["default"])
 
                 # Draw labels only at intersections of named streets
                 if column_name and row_name:
@@ -268,23 +351,143 @@ class CityMapApp(QMainWindow):
         for name, (column_index, row_index) in user_buildings_coordinates.items():
             draw_location(column_index + 1, row_index + 1, QColor("purple"), name)
 
+        # Get current location
+        current_x, current_y = self.column_start + self.zoom_level // 2, self.row_start + self.zoom_level // 2
+
+        # Find and draw lines to nearest locations
+        nearest_pub = self.find_nearest_pub(current_x, current_y)
+        nearest_bank = self.find_nearest_bank(current_x, current_y)
+        nearest_transit = self.find_nearest_transit(current_x, current_y)
+
+        if nearest_pub:
+            nearest_pub = nearest_pub[0][1]
+            painter.setPen(QPen(QColor('orange'), 3))  # Set pen color to orange and width to 3
+            painter.drawLine(
+                (current_x - self.column_start) * block_size + block_size // 2,
+                (current_y - self.row_start) * block_size + block_size // 2,
+                (nearest_pub[0] - self.column_start + 1) * block_size + block_size // 2,
+                (nearest_pub[1] - self.row_start + 1) * block_size + block_size // 2
+            )
+
+        if nearest_bank:
+            nearest_bank = nearest_bank[0][1]
+            painter.setPen(QPen(QColor('blue'), 3))  # Set pen color to blue and width to 3
+            painter.drawLine(
+                (current_x - self.column_start) * block_size + block_size // 2,
+                (current_y - self.row_start) * block_size + block_size // 2,
+                (nearest_bank[0] - self.column_start + 1) * block_size + block_size // 2,
+                (nearest_bank[1] - self.row_start + 1) * block_size + block_size // 2
+            )
+
+        if nearest_transit:
+            nearest_transit = nearest_transit[0][1]
+            painter.setPen(QPen(QColor('red'), 3))  # Set pen color to red and width to 3
+            painter.drawLine(
+                (current_x - self.column_start) * block_size + block_size // 2,
+                (current_y - self.row_start) * block_size + block_size // 2,
+                (nearest_transit[0] - self.column_start + 1) * block_size + block_size // 2,
+                (nearest_transit[1] - self.row_start + 1) * block_size + block_size // 2
+            )
+
         painter.end()
         self.minimap_label.setPixmap(pixmap)
 
     def update_minimap(self):
+        """
+        Updates the minimap by calling the draw_minimap method.
+        """
         self.draw_minimap()
 
+    def find_nearest_location(self, x, y, locations):
+        """
+        Finds the nearest location from a list of locations.
+
+        Args:
+            x (int): X coordinate of the current location.
+            y (int): Y coordinate of the current location.
+            locations (list): List of locations to search from.
+
+        Returns:
+            list: List of tuples containing distances and coordinates of nearest locations.
+        """
+        distances = []
+        for loc in locations:
+            lx, ly = loc
+            dist = abs(lx - x) + abs(ly - y)
+            distances.append((dist, (lx, ly)))
+        distances.sort()
+        return distances
+
+    def find_nearest_pub(self, x, y):
+        """
+        Finds the nearest pub from the current location.
+
+        Args:
+            x (int): X coordinate of the current location.
+            y (int): Y coordinate of the current location.
+
+        Returns:
+            list: List of tuples containing distances and coordinates of nearest pubs.
+        """
+        return self.find_nearest_location(x, y, pubs_coordinates)
+
+    def find_nearest_bank(self, x, y):
+        """
+        Finds the nearest bank from the current location.
+
+        Args:
+            x (int): X coordinate of the current location.
+            y (int): Y coordinate of the current location.
+
+        Returns:
+            list: List of tuples containing distances and coordinates of nearest banks.
+        """
+        return self.find_nearest_location(x, y, banks_coordinates)
+
+    def find_nearest_transit(self, x, y):
+        """
+        Finds the nearest transit from the current location.
+
+        Args:
+            x (int): X coordinate of the current location.
+            y (int): Y coordinate of the current location.
+
+        Returns:
+            list: List of tuples containing distances and coordinates of nearest transits.
+        """
+        return self.find_nearest_location(x, y, transits_coordinates)
+
+    # Commenting out the set_closest_level method for now
+    # def set_closest_level(self, level):
+    #     """
+    #     Sets the level of closest location to display (1st, 2nd, or 3rd).
+    #
+    #     Args:
+    #         level (int): Level of closest location to display.
+    #     """
+    #     self.closest_level = level
+    #     self.update_minimap()
+
     def zoom_in(self):
+        """
+        Zooms in the minimap by decreasing the zoom level.
+        """
         if self.zoom_level > 3:
             self.zoom_level -= 1
             self.update_minimap()
 
     def zoom_out(self):
+        """
+        Zooms out the minimap by increasing the zoom level.
+        """
         if self.zoom_level < 10:
             self.zoom_level += 1
             self.update_minimap()
 
     def go_to_location(self):
+        """
+        Moves the minimap to the location selected in the combo boxes.
+        """
         column_name = self.combo_columns.currentText()
         row_name = self.combo_rows.currentText()
         if column_name in columns:
@@ -294,6 +497,12 @@ class CityMapApp(QMainWindow):
         self.update_minimap()
 
     def mousePressEvent(self, event):
+        """
+        Handles mouse press events on the minimap to center the map on the clicked location.
+
+        Args:
+            event (QMouseEvent): Mouse event.
+        """
         x = event.x()
         y = event.y()
 
@@ -312,7 +521,6 @@ class CityMapApp(QMainWindow):
                 self.row_start = new_row_start
 
             self.update_minimap()
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

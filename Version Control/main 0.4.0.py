@@ -6,13 +6,10 @@ from PyQt5.QtWidgets import (
     QPushButton, QComboBox, QLabel, QFrame, QSizePolicy
 )
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics
-from PyQt5.QtCore import QUrl, QSize, Qt
+from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-import pickle
-import os
 
 from variables import *
-
 class CityMapApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -122,6 +119,7 @@ class CityMapApp(QMainWindow):
 
         refresh_button = QPushButton('Refresh')
         refresh_button.setFixedSize(button_size, 40)
+        refresh_button.clicked.connect(self.refresh_webview)  # Connect to refresh_webview method
         action_layout.addWidget(refresh_button)
 
         discord_button = QPushButton('Discord')
@@ -163,12 +161,40 @@ class CityMapApp(QMainWindow):
         # Add the website frame on the right
         self.website_frame = QWebEngineView()
         self.website_frame.setUrl(QUrl('https://quiz.ravenblack.net/blood.pl'))
+        self.website_frame.loadFinished.connect(self.on_webview_load_finished)
         main_layout.addWidget(self.website_frame)
 
         self.show()
 
         # Initial minimap update
         self.update_minimap()
+
+    def on_webview_load_finished(self):
+        self.website_frame.page().toHtml(self.process_html)
+
+    def process_html(self, html):
+        # Extract the coordinates from the HTML content
+        x_coord, y_coord = self.extract_coordinates_from_html(html)
+        if x_coord is not None and y_coord is not None:
+            self.column_start = x_coord
+            self.row_start = y_coord
+            self.update_minimap()
+
+    def extract_coordinates_from_html(self, html):
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, 'html.parser')
+        intersect_span = soup.find('span', class_='intersect')
+        if intersect_span:
+            text = intersect_span.get_text()
+            if ' and ' in text:
+                column_name, row_name = text.split(' and ')
+                if column_name in columns and row_name in rows:
+                    return columns[column_name], rows[row_name]
+        return None, None
+
+    def refresh_webview(self):
+        self.website_frame.reload()
 
     def draw_minimap(self):
         pixmap = QPixmap(self.minimap_size, self.minimap_size)
@@ -184,56 +210,65 @@ class CityMapApp(QMainWindow):
         # Calculate font metrics for centering text
         font_metrics = QFontMetrics(font)
 
-        def determine_color(column_index, row_index):
-            if column_index < min(columns.values()) or column_index > max(columns.values()) or row_index < min(
-                    rows.values()) or row_index > max(rows.values()):
-                return color_map["edge"]
-            elif (column_index % 2 == 1) or (row_index % 2 == 1):
-                return color_map["alley"]
-            else:
-                if (column_index, row_index) in banks_coordinates:
-                    return color_map["bank"]
-                elif (column_index, row_index) in pubs_coordinates:
-                    return color_map["pub"]
-                elif (column_index, row_index) in transits_coordinates:
-                    return color_map["transit"]
-                elif (column_index, row_index) in user_buildings_coordinates.values():
-                    return QColor("purple")
-                return color_map["default"]
+        def draw_location(column_index, row_index, color, label_text=None):
+            x0 = (column_index - self.column_start) * block_size
+            y0 = (row_index - self.row_start) * block_size
+
+            # Draw a smaller rectangle within the cell
+            inner_margin = block_size // 4
+            painter.fillRect(x0 + inner_margin, y0 + inner_margin,
+                             block_size - 2 * inner_margin, block_size - 2 * inner_margin, color)
+
+            if label_text:
+                text_rect = font_metrics.boundingRect(label_text)
+                text_x = x0 + (block_size - text_rect.width()) // 2
+                text_y = y0 + (block_size + text_rect.height()) // 2 - font_metrics.descent()
+                painter.setPen(QColor('white'))
+                painter.drawText(text_x, text_y, label_text)
 
         for i in range(self.zoom_level):
             for j in range(self.zoom_level):
-                x0, y0 = j * block_size, i * block_size
-
                 column_index = self.column_start + j
                 row_index = self.row_start + i
 
-                # Draw border around each cell
+                x0, y0 = j * block_size, i * block_size
+
+                # Draw the cell background
                 painter.setPen(QColor('white'))
                 painter.drawRect(x0, y0, block_size - border_size, block_size - border_size)
 
-                color = determine_color(column_index, row_index)
-
-                painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
-                                 block_size - 2 * border_size, color)
-
-                # Draw labels only at intersections of named streets or for user buildings
                 column_name = next((name for name, coord in columns.items() if coord == column_index), None)
                 row_name = next((name for name, coord in rows.items() if coord == row_index), None)
-                if column_name and row_name:
-                    location = (column_index, row_index)
-                    if location in user_buildings_coordinates.values():
-                        label_text = next(
-                            name for name, coord in user_buildings_coordinates.items() if coord == location)
-                    else:
-                        label_text = f"{column_name} & {row_name}"
 
+                # Draw cell background color
+                if column_index < min(columns.values()) or column_index > max(columns.values()) or row_index < min(rows.values()) or row_index > max(rows.values()):
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["edge"])
+                elif (column_index % 2 == 1) or (row_index % 2 == 1):
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["alley"])
+                else:
+                    painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size, block_size - 2 * border_size, color_map["default"])
+
+                # Draw labels only at intersections of named streets
+                if column_name and row_name:
+                    label_text = f"{column_name} & {row_name}"
                     text_rect = font_metrics.boundingRect(label_text)
                     text_x = x0 + (block_size - text_rect.width()) // 2
                     text_y = y0 + (block_size + text_rect.height()) // 2 - font_metrics.descent()
-
                     painter.setPen(QColor('white'))
                     painter.drawText(text_x, text_y, label_text)
+
+        # Draw special locations
+        for (column_index, row_index) in banks_coordinates:
+            draw_location(column_index + 1, row_index + 1, color_map["bank"], "Bank")
+
+        for (column_index, row_index) in pubs_coordinates:
+            draw_location(column_index + 1, row_index + 1, color_map["pub"], "Pub")
+
+        for (column_index, row_index) in transits_coordinates:
+            draw_location(column_index + 1, row_index + 1, color_map["transit"], "Transit")
+
+        for name, (column_index, row_index) in user_buildings_coordinates.items():
+            draw_location(column_index + 1, row_index + 1, QColor("purple"), name)
 
         painter.end()
         self.minimap_label.setPixmap(pixmap)
