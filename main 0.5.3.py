@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# Filename: 0.5.2.py
-
 """
 RBC City Map Application
 =========================
@@ -30,6 +27,8 @@ Functions:
 - update_guilds: Update the guilds data in the database.
 - update_shops: Update the shops data in the database.
 """
+#!/usr/bin/env python3
+# Filename: main 0.5.3.py
 
 import sys
 import pickle
@@ -45,7 +44,6 @@ from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics, QPen
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
-# Database connection constants
 LOCAL_HOST = "127.0.0.1"
 REMOTE_HOST = "lollis-home.ddns.net"
 USER = "rbc_maps"
@@ -89,7 +87,7 @@ def load_data():
 
     Returns:
         tuple: Contains columns, rows, banks_coordinates, taverns_coordinates,
-               transits_coordinates, user_buildings_coordinates, color_mappings
+               transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates
     """
     connection = connect_to_database()
     if not connection:
@@ -97,53 +95,49 @@ def load_data():
 
     cursor = connection.cursor()
 
-    # Fetch columns data
     cursor.execute("SELECT * FROM `columns`")
     columns_data = cursor.fetchall()
     columns = {name: coordinate for _, name, coordinate in columns_data}
 
-    # Fetch rows data
     cursor.execute("SELECT * FROM `rows`")
     rows_data = cursor.fetchall()
     rows = {name: coordinate for _, name, coordinate in rows_data}
 
-    # Fetch banks data
     cursor.execute("SELECT * FROM banks")
     banks_data = cursor.fetchall()
     banks_coordinates = [(columns[col], rows[row]) for _, col, row in banks_data]
 
-    # Fetch taverns data
     cursor.execute("SELECT * FROM taverns")
     taverns_data = cursor.fetchall()
     taverns_coordinates = {name: (columns.get(col), rows.get(row)) for _, col, row, name in taverns_data}
 
-    # Fetch transits data
     cursor.execute("SELECT * FROM transits")
     transits_data = cursor.fetchall()
     transits_coordinates = {name: (columns.get(col), rows.get(row)) for _, col, row, name in transits_data}
 
-    # Fetch user buildings data
     cursor.execute("SELECT * FROM userbuildings")
     user_buildings_data = cursor.fetchall()
     user_buildings_coordinates = {name: (columns.get(col), rows.get(row)) for _, name, col, row in user_buildings_data}
 
-    # Fetch color mappings data
     cursor.execute("SELECT * FROM color_mappings")
     color_mappings_data = cursor.fetchall()
     color_mappings = {type_: QColor(color) for _, type_, color in color_mappings_data}
 
+    cursor.execute("SELECT * FROM shops")
+    shops_data = cursor.fetchall()
+    shops_coordinates = {name: (columns.get(col), rows.get(row)) for _, name, col, row, next_update in shops_data}
+
+    cursor.execute("SELECT * FROM guilds")
+    guilds_data = cursor.fetchall()
+    guilds_coordinates = {name: (columns.get(col), rows.get(row)) for _, name, col, row, next_update in guilds_data}
+
     connection.close()
 
-    return columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings
+    return columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates
 
-# Load data from the database
-columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings = load_data()
+columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates = load_data()
 
 class CityMapApp(QMainWindow):
-    """
-    Main application class for the RBC City Map.
-    """
-
     def __init__(self):
         """
         Initialize the CityMapApp.
@@ -158,6 +152,7 @@ class CityMapApp(QMainWindow):
         self.column_start = 0
         self.row_start = 0
         self.destination = None
+        self.color_mappings = color_mappings
         self.load_destination()
 
         central_widget = QWidget()
@@ -304,13 +299,20 @@ class CityMapApp(QMainWindow):
             tuple: x and y coordinates.
         """
         soup = BeautifulSoup(html, 'html.parser')
-        intersect_span = soup.find('span', class_='intersect')
-        if intersect_span:
-            text = intersect_span.get_text()
-            if ' and ' in text:
-                column_name, row_name = text.split(' and ')
-                if column_name in columns and row_name in rows:
-                    return columns[column_name], rows[row_name]
+        x_input = soup.find('input', {'name': 'x'})
+        y_input = soup.find('input', {'name': 'y'})
+        if x_input and y_input:
+            return int(x_input['value']), int(y_input['value'])
+
+        current_location_td = soup.find('td', {'class': 'street', 'style': 'border: solid 1px white;'})
+
+        if current_location_td:
+            form = current_location_td.find('form')
+            if form:
+                x_value = int(form.find('input', {'name': 'x'})['value'])
+                y_value = int(form.find('input', {'name': 'y'})['value'])
+                return x_value, y_value
+
         return None, None
 
     def refresh_webview(self):
@@ -379,13 +381,13 @@ class CityMapApp(QMainWindow):
                 if column_index < min(columns.values()) or column_index > max(columns.values()) or row_index < min(
                         rows.values()) or row_index > max(rows.values()):
                     painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
-                                     block_size - 2 * border_size, color_mappings["edge"])
+                                     block_size - 2 * border_size, self.color_mappings["edge"])
                 elif (column_index % 2 == 1) or (row_index % 2 == 1):
                     painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
-                                     block_size - 2 * border_size, color_mappings["alley"])
+                                     block_size - 2 * border_size, self.color_mappings["alley"])
                 else:
                     painter.fillRect(x0 + border_size, y0 + border_size, block_size - 2 * border_size,
-                                     block_size - 2 * border_size, color_mappings["default"])
+                                     block_size - 2 * border_size, self.color_mappings["default"])
 
                 # Draw labels only at intersections of named streets
                 if column_name and row_name:
@@ -398,16 +400,28 @@ class CityMapApp(QMainWindow):
 
         # Draw special locations
         for (column_index, row_index) in banks_coordinates:
-            draw_location(column_index + 1, row_index + 1, color_mappings["bank"], "Bank")
+            draw_location(column_index + 1, row_index + 1, self.color_mappings["bank"], "Bank")
 
         for name, (column_index, row_index) in taverns_coordinates.items():
-            draw_location(column_index + 1, row_index + 1, color_mappings["tavern"], name)
+            draw_location(column_index + 1, row_index + 1, self.color_mappings["tavern"], name)
 
         for name, (column_index, row_index) in transits_coordinates.items():
-            draw_location(column_index + 1, row_index + 1, color_mappings["transit"], name)
+            draw_location(column_index + 1, row_index + 1, self.color_mappings["transit"], name)
 
         for name, (column_index, row_index) in user_buildings_coordinates.items():
-            draw_location(column_index + 1, row_index + 1, color_mappings["user_building"], name)
+            draw_location(column_index + 1, row_index + 1, self.color_mappings["user_building"], name)
+
+        for name, (column_index, row_index) in shops_coordinates.items():
+            if column_index is not None and row_index is not None:
+                draw_location(column_index + 1, row_index + 1, self.color_mappings["shop"], name)
+            else:
+                print(f"Skipping shop '{name}' due to missing coordinates")
+
+        for name, (column_index, row_index) in guilds_coordinates.items():
+            if column_index is not None and row_index is not None:
+                draw_location(column_index + 1, row_index + 1, self.color_mappings["guild"], name)
+            else:
+                print(f"Skipping guild '{name}' due to missing coordinates")
 
         # Get current location
         current_x, current_y = self.column_start + self.zoom_level // 2, self.row_start + self.zoom_level // 2
@@ -424,7 +438,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (nearest_tavern[0] - self.column_start + 1) * block_size + block_size // 2,
-                (nearest_tavern[1] - self.row_start + 1) * block_size // 2
+                (nearest_tavern[1] - self.row_start + 1) * block_size + block_size // 2
             )
 
         if nearest_bank:
@@ -434,7 +448,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (nearest_bank[0] - self.column_start + 1) * block_size + block_size // 2,
-                (nearest_bank[1] - self.row_start + 1) * block_size // 2
+                (nearest_bank[1] - self.row_start + 1) * block_size + block_size // 2
             )
 
         if nearest_transit:
@@ -444,7 +458,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (nearest_transit[0] - self.column_start + 1) * block_size + block_size // 2,
-                (nearest_transit[1] - self.row_start + 1) * block_size // 2
+                (nearest_transit[1] - self.row_start + 1) * block_size + block_size // 2
             )
 
         # Draw destination line
@@ -541,7 +555,7 @@ class CityMapApp(QMainWindow):
         """
         Save the destination to a file.
         """
-        with open('destination.pkl', 'wb') as f:
+        with open('testing/destination.pkl', 'wb') as f:
             pickle.dump(self.destination, f)
             pickle.dump(datetime.now(), f)
 
@@ -550,7 +564,7 @@ class CityMapApp(QMainWindow):
         Load the destination from a file.
         """
         try:
-            with open('destination.pkl', 'rb') as f:
+            with open('testing/destination.pkl', 'rb') as f:
                 self.destination = pickle.load(f)
                 self.scrape_timestamp = pickle.load(f)
         except FileNotFoundError:
@@ -720,18 +734,13 @@ def update_guilds(cursor, soup, next_update_time):
         soup (BeautifulSoup): BeautifulSoup object containing the HTML data.
         next_update_time (datetime): The next update timestamp.
     """
-    guilds_div = soup.find(lambda tag: tag.name == "div" and "next_change" in tag.get("class", []) and "Guilds" in tag.text)
-    if not guilds_div:
-        print("Guilds div not found")
-    else:
-        guilds_table = guilds_div.find_next('table')
-        guilds_rows = guilds_table.find_all('tr')[1:-1]
-
-        for row in guilds_rows:
-            columns = row.find_all('td')
-            name = columns[0].text.strip()
-            location = columns[1].text.replace('SE of ', '').strip()
+    for name in guilds_coordinates:
+        location_tag = soup.find('td', string=name)
+        if location_tag:
+            location = location_tag.find_next_sibling('td').text.replace('SE of ', '').strip()
             update_guild(cursor, name, location, next_update_time)
+        else:
+            print(f"Guild '{name}' not found in the table.")
 
 def update_shops(cursor, soup, next_update_time):
     """
@@ -742,18 +751,13 @@ def update_shops(cursor, soup, next_update_time):
         soup (BeautifulSoup): BeautifulSoup object containing the HTML data.
         next_update_time (datetime): The next update timestamp.
     """
-    shops_div = soup.find(lambda tag: tag.name == "div" and "next_change" in tag.get("class", []) and "Shops" in tag.text)
-    if not shops_div:
-        print("Shops div not found")
-    else:
-        shops_table = shops_div.find_next('table')
-        shops_rows = shops_table.find_all('tr')[1:-1]
-
-        for row in shops_rows:
-            columns = row.find_all('td')
-            name = columns[0].text.strip()
-            location = columns[1].text.replace('SE of ', '').strip()
+    for name in shops_coordinates:
+        location_tag = soup.find('td', string=name)
+        if location_tag:
+            location = location_tag.find_next_sibling('td').text.replace('SE of ', '').strip()
             update_shop(cursor, name, location, next_update_time)
+        else:
+            print(f"Shop '{name}' not found in the table.")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
