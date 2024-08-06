@@ -32,7 +32,7 @@ To install all required modules, run the following command:
  pip install pymysql requests bs4 PyQt5 PyQtWebEngine
 """
 #!/usr/bin/env python3
-# Filename: 0.6.0.py
+# Filename: main 0.6.0.py
 
 import sys
 import pickle
