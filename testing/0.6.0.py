@@ -269,7 +269,7 @@ class CityMapApp(QMainWindow):
         self.combo_rows.addItems(rows.keys())
 
         go_button = QPushButton('Go')
-        go_button.setFixedSize(50, 30)
+        go_button.setFixedSize(25,25)
         go_button.clicked.connect(self.go_to_location)
 
         combo_go_layout.addWidget(self.combo_columns)
@@ -283,17 +283,17 @@ class CityMapApp(QMainWindow):
         button_size = (self.minimap_size - 10) // 3
 
         zoom_in_button = QPushButton('Zoom in')
-        zoom_in_button.setFixedSize(button_size, 40)
+        zoom_in_button.setFixedSize(button_size, 25)
         zoom_in_button.clicked.connect(self.zoom_in)
         zoom_layout.addWidget(zoom_in_button)
 
         zoom_out_button = QPushButton('Zoom out')
-        zoom_out_button.setFixedSize(button_size, 40)
+        zoom_out_button.setFixedSize(button_size, 25)
         zoom_out_button.clicked.connect(self.zoom_out)
         zoom_layout.addWidget(zoom_out_button)
 
         set_destination_button = QPushButton('Set Destination')
-        set_destination_button.setFixedSize(button_size, 40)
+        set_destination_button.setFixedSize(button_size, 25)
         set_destination_button.clicked.connect(self.set_destination)
         zoom_layout.addWidget(set_destination_button)
 
@@ -303,17 +303,17 @@ class CityMapApp(QMainWindow):
         action_layout = QHBoxLayout()
 
         refresh_button = QPushButton('Refresh')
-        refresh_button.setFixedSize(button_size, 40)
+        refresh_button.setFixedSize(button_size, 25)
         refresh_button.clicked.connect(self.refresh_webview)
         action_layout.addWidget(refresh_button)
 
         discord_button = QPushButton('Discord')
-        discord_button.setFixedSize(button_size, 40)
+        discord_button.setFixedSize(button_size, 25)
         discord_button.clicked.connect(self.open_discord)
         action_layout.addWidget(discord_button)
 
         website_button = QPushButton('Website')
-        website_button.setFixedSize(button_size, 40)
+        website_button.setFixedSize(button_size, 25)
         action_layout.addWidget(website_button)
 
         left_layout.addLayout(action_layout)
