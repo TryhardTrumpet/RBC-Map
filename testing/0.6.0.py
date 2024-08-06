@@ -26,14 +26,16 @@ Functions:
 - update_shop: Update a single shop in the database.
 - update_guilds: Update the guilds data in the database.
 - update_shops: Update the shops data in the database.
+- get_next_update_times: Retrieve the next update times for guilds and shops from the database.
 """
 #!/usr/bin/env python3
-# Filename: main 0.5.3.py
+# Filename: 0.6.0.py
 
 import sys
 import pickle
 import pymysql
 import requests
+import re
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from PyQt5.QtWidgets import (
@@ -134,6 +136,33 @@ def load_data():
     connection.close()
 
     return columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates
+
+def get_next_update_times():
+    """
+    Retrieve the next update times for guilds and shops from the database.
+
+    Returns:
+        tuple: The next update times for guilds and shops.
+    """
+    connection = connect_to_database()
+    if not connection:
+        sys.exit("Failed to connect to the database.")
+
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT next_update FROM guilds ORDER BY next_update DESC LIMIT 1")
+    guilds_next_update = cursor.fetchone()
+    if guilds_next_update:
+        guilds_next_update = guilds_next_update[0]
+
+    cursor.execute("SELECT next_update FROM shops ORDER BY next_update DESC LIMIT 1")
+    shops_next_update = cursor.fetchone()
+    if shops_next_update:
+        shops_next_update = shops_next_update[0]
+
+    connection.close()
+
+    return guilds_next_update, shops_next_update
 
 columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates = load_data()
 
@@ -555,7 +584,7 @@ class CityMapApp(QMainWindow):
         """
         Save the destination to a file.
         """
-        with open('testing/destination.pkl', 'wb') as f:
+        with open('destination.pkl', 'wb') as f:
             pickle.dump(self.destination, f)
             pickle.dump(datetime.now(), f)
 
@@ -564,7 +593,7 @@ class CityMapApp(QMainWindow):
         Load the destination from a file.
         """
         try:
-            with open('testing/destination.pkl', 'rb') as f:
+            with open('destination.pkl', 'rb') as f:
                 self.destination = pickle.load(f)
                 self.scrape_timestamp = pickle.load(f)
         except FileNotFoundError:
@@ -674,19 +703,25 @@ def extract_next_update_time(text):
     Returns:
         datetime: The next update timestamp.
     """
-    parts = text.split("in ")[1].split(", ")
+    # Regular expression to find all integers followed by time units
+    matches = re.findall(r'(\d+)\s*(days?|h|m|s)', text)
+
+    # Initialize time components
     days = hours = minutes = seconds = 0
 
-    for part in parts:
-        if "days" in part:
-            days = int(part.replace("days", "").strip())
-        elif "h" in part:
-            hours = int(part.replace("h", "").strip())
-        elif "m" in part:
-            minutes = int(part.replace("m", "").strip())
-        elif "s" in part:
-            seconds = int(part.replace("s", "").strip())
+    # Assign values based on time units
+    for value, unit in matches:
+        value = int(value)
+        if 'day' in unit:
+            days = value
+        elif 'h' in unit:
+            hours = value
+        elif 'm' in unit:
+            minutes = value
+        elif 's' in unit:
+            seconds = value
 
+    # Calculate the next update time
     next_update = datetime.now() + timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
     next_update = next_update.replace(second=0, microsecond=0) + timedelta(minutes=1)
     return next_update
@@ -761,6 +796,8 @@ def update_shops(cursor, soup, next_update_time):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    scrape_avitd_data()
+    guilds_next_update, shops_next_update = get_next_update_times()
+    if datetime.now() >= guilds_next_update or datetime.now() >= shops_next_update:
+        scrape_avitd_data()
     window = CityMapApp()
     sys.exit(app.exec_())
