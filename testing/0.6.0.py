@@ -27,6 +27,9 @@ Functions:
 - update_guilds: Update the guilds data in the database.
 - update_shops: Update the shops data in the database.
 - get_next_update_times: Retrieve the next update times for guilds and shops from the database.
+
+To install all required modules, run the following command:
+ pip install pymysql requests bs4 PyQt5 PyQtWebEngine
 """
 #!/usr/bin/env python3
 # Filename: 0.6.0.py
@@ -36,16 +39,18 @@ import pickle
 import pymysql
 import requests
 import re
+import webbrowser
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QComboBox, QLabel, QFrame, QSizePolicy
+    QPushButton, QComboBox, QLabel, QFrame, QSizePolicy, QListWidget, QListWidgetItem
 )
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics, QPen
 from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
+# Database connection details
 LOCAL_HOST = "127.0.0.1"
 REMOTE_HOST = "lollis-home.ddns.net"
 USER = "rbc_maps"
@@ -164,6 +169,7 @@ def get_next_update_times():
 
     return guilds_next_update, shops_next_update
 
+# Load initial data from the database
 columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates = load_data()
 
 class CityMapApp(QMainWindow):
@@ -186,15 +192,57 @@ class CityMapApp(QMainWindow):
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QHBoxLayout()
-        central_widget.setLayout(main_layout)
+        main_layout = QVBoxLayout(central_widget)
 
+        # Main layout for map and controls
+        map_layout = QHBoxLayout()
+        main_layout.addLayout(map_layout)
+
+        # Left layout containing the minimap and control buttons
         left_layout = QVBoxLayout()
         left_frame = QFrame()
         left_frame.setFrameShape(QFrame.Box)
         left_frame.setFixedWidth(300)
         left_frame.setLayout(left_layout)
 
+        # Information frame to display closest locations and AP costs
+        info_frame = QFrame()
+        info_frame.setFrameShape(QFrame.Box)
+        info_frame.setFixedHeight(195)
+        info_layout = QVBoxLayout()
+        info_frame.setLayout(info_layout)
+        left_layout.addWidget(info_frame)
+
+        # Labels to display closest locations and destination
+        self.bank_label = QLabel()
+        self.bank_label.setAlignment(Qt.AlignLeft)
+        self.bank_label.setStyleSheet("background-color: blue; color: white; font-weight: bold;")
+        self.bank_label.setWordWrap(True)
+        self.bank_label.setFixedHeight(40)
+        info_layout.addWidget(self.bank_label)
+
+        self.transit_label = QLabel()
+        self.transit_label.setAlignment(Qt.AlignLeft)
+        self.transit_label.setStyleSheet("background-color: red; color: white; font-weight: bold;")
+        self.transit_label.setWordWrap(True)
+        self.transit_label.setFixedHeight(40)
+        info_layout.addWidget(self.transit_label)
+
+        self.tavern_label = QLabel()
+        self.tavern_label.setAlignment(Qt.AlignLeft)
+        self.tavern_label.setStyleSheet("background-color: orange; color: white; font-weight: bold;")
+        self.tavern_label.setWordWrap(True)
+        self.tavern_label.setFixedHeight(40)
+        info_layout.addWidget(self.tavern_label)
+
+        self.destination_label = QLabel()
+        self.destination_label.setAlignment(Qt.AlignLeft)
+        self.destination_label.setStyleSheet("background-color: green; color: white; font-weight: bold;")
+        self.destination_label.setWordWrap(True)
+        self.destination_label.setFixedHeight(40)
+        info_layout.addWidget(self.destination_label)
+
+        # Frame for the minimap
         minimap_frame = QFrame()
         minimap_frame.setFrameShape(QFrame.Box)
         minimap_frame.setFixedSize(self.minimap_size, self.minimap_size)
@@ -202,12 +250,14 @@ class CityMapApp(QMainWindow):
         minimap_layout.setContentsMargins(0, 0, 0, 0)
         minimap_frame.setLayout(minimap_layout)
 
+        # Label to display the minimap
         self.minimap_label = QLabel()
         self.minimap_label.setFixedSize(self.minimap_size, self.minimap_size)
         self.minimap_label.setStyleSheet("background-color: lightgrey;")
         minimap_layout.addWidget(self.minimap_label)
         left_layout.addWidget(minimap_frame)
 
+        # Layout for column and row selection with Go button
         combo_go_layout = QHBoxLayout()
         combo_go_layout.setSpacing(5)
 
@@ -229,6 +279,7 @@ class CityMapApp(QMainWindow):
 
         left_layout.addLayout(combo_go_layout)
 
+        # Layout for zoom and set destination buttons
         zoom_layout = QHBoxLayout()
         button_size = (self.minimap_size - 10) // 3
 
@@ -249,6 +300,7 @@ class CityMapApp(QMainWindow):
 
         left_layout.addLayout(zoom_layout)
 
+        # Layout for refresh, discord, and website buttons
         action_layout = QHBoxLayout()
 
         refresh_button = QPushButton('Refresh')
@@ -258,6 +310,7 @@ class CityMapApp(QMainWindow):
 
         discord_button = QPushButton('Discord')
         discord_button.setFixedSize(button_size, 40)
+        discord_button.clicked.connect(self.open_discord)
         action_layout.addWidget(discord_button)
 
         website_button = QPushButton('Website')
@@ -266,34 +319,13 @@ class CityMapApp(QMainWindow):
 
         left_layout.addLayout(action_layout)
 
-        character_frame = QFrame()
-        character_frame.setFrameShape(QFrame.Box)
-        character_layout = QVBoxLayout()
-        character_frame.setLayout(character_layout)
+        map_layout.addWidget(left_frame)
 
-        character_list_label = QLabel('Character List')
-        character_layout.addWidget(character_list_label)
-
-        character_list = QLabel()
-        character_layout.addWidget(character_list)
-
-        character_buttons_layout = QHBoxLayout()
-        new_button = QPushButton('New')
-        modify_button = QPushButton('Modify')
-        delete_button = QPushButton('Delete')
-        character_buttons_layout.addWidget(new_button)
-        character_buttons_layout.addWidget(modify_button)
-        character_buttons_layout.addWidget(delete_button)
-        character_layout.addLayout(character_buttons_layout)
-
-        left_layout.addWidget(character_frame)
-
-        main_layout.addWidget(left_frame)
-
+        # Frame for displaying the website
         self.website_frame = QWebEngineView()
         self.website_frame.setUrl(QUrl('https://quiz.ravenblack.net/blood.pl'))
         self.website_frame.loadFinished.connect(self.on_webview_load_finished)
-        main_layout.addWidget(self.website_frame)
+        map_layout.addWidget(self.website_frame)
 
         self.show()
         self.update_minimap()
@@ -497,7 +529,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (self.destination[0] - self.column_start) * block_size + block_size // 2,
-                (self.destination[1] - self.row_start) * block_size + block_size // 2
+                (self.destination[1] - self.row_start) * block_size // 2
             )
 
         painter.end()
@@ -508,6 +540,7 @@ class CityMapApp(QMainWindow):
         Update the minimap.
         """
         self.draw_minimap()
+        self.update_info_frame()
 
     def find_nearest_location(self, x, y, locations):
         """
@@ -638,10 +671,12 @@ class CityMapApp(QMainWindow):
         x = event.x()
         y = event.y()
 
-        if x < self.minimap_size and y < self.minimap_size:
+        if self.minimap_label.geometry().contains(x, y):
+            x_relative = x - self.minimap_label.x()
+            y_relative = y - self.minimap_label.y()
             block_size = self.minimap_size // self.zoom_level
-            col_clicked = x // block_size
-            row_clicked = y // block_size
+            col_clicked = x_relative // block_size
+            row_clicked = y_relative // block_size
 
             new_column_start = self.column_start + col_clicked - self.zoom_level // 2
             new_row_start = self.row_start + row_clicked - self.zoom_level // 2
@@ -652,6 +687,89 @@ class CityMapApp(QMainWindow):
                 self.row_start = new_row_start
 
             self.update_minimap()
+
+    def calculate_ap_cost(self, start, end):
+        """
+        Calculate the AP cost of moving from start to end.
+
+        Args:
+            start (tuple): Starting coordinates (x, y).
+            end (tuple): Ending coordinates (x, y).
+
+        Returns:
+            int: AP cost of moving from start to end.
+        """
+        return abs(start[0] - end[0]) + abs(start[1] - end[1])
+
+    def update_info_frame(self):
+        """
+        Update the information frame with the closest locations and AP costs.
+        """
+        current_x, current_y = self.column_start + self.zoom_level // 2, self.row_start + self.zoom_level // 2
+
+        # Find nearest locations
+        nearest_tavern = self.find_nearest_tavern(current_x, current_y)
+        nearest_bank = self.find_nearest_bank(current_x, current_y)
+        nearest_transit = self.find_nearest_transit(current_x, current_y)
+
+        # Get details for nearest tavern
+        if nearest_tavern:
+            tavern_coords = nearest_tavern[0][1]
+            tavern_name = next(name for name, coords in taverns_coordinates.items() if coords == tavern_coords)
+            tavern_color = "orange"
+            tavern_ap_cost = self.calculate_ap_cost((current_x, current_y), tavern_coords)
+            tavern_intersection = self.get_intersection_name(tavern_coords)
+            self.tavern_label.setText(f"{tavern_name}\n{tavern_intersection}\nAP: {tavern_ap_cost}")
+
+        # Get details for nearest bank
+        if nearest_bank:
+            bank_coords = nearest_bank[0][1]
+            bank_name = "Bank"
+            bank_color = "blue"
+            bank_ap_cost = self.calculate_ap_cost((current_x, current_y), bank_coords)
+            bank_intersection = self.get_intersection_name(bank_coords)
+            self.bank_label.setText(f"OmniBank\n{bank_intersection}\nAP: {bank_ap_cost}")
+
+        # Get details for nearest transit
+        if nearest_transit:
+            transit_coords = nearest_transit[0][1]
+            transit_name = next(name for name, coords in transits_coordinates.items() if coords == transit_coords)
+            transit_color = "red"
+            transit_ap_cost = self.calculate_ap_cost((current_x, current_y), transit_coords)
+            transit_intersection = self.get_intersection_name(transit_coords)
+            self.transit_label.setText(f"{transit_name}\n{transit_intersection}\nAP: {transit_ap_cost}")
+
+        # Get details for set destination
+        if self.destination:
+            destination_coords = self.destination
+            destination_name = "Destination"
+            destination_color = "green"
+            destination_ap_cost = self.calculate_ap_cost((current_x, current_y), destination_coords)
+            destination_intersection = self.get_intersection_name(destination_coords)
+            self.destination_label.setText(f"{destination_name}\n{destination_intersection}\nAP: {destination_ap_cost}")
+        else:
+            self.destination_label.setText("No Destination Set")
+
+    def get_intersection_name(self, coords):
+        """
+        Get the intersection name for the given coordinates.
+
+        Args:
+            coords (tuple): Coordinates (x, y).
+
+        Returns:
+            str: Intersection name.
+        """
+        x, y = coords
+        column_name = next((name for name, coord in columns.items() if coord == x), "")
+        row_name = next((name for name, coord in rows.items() if coord == y), "")
+        return f"{column_name} & {row_name}"
+
+    def open_discord(self):
+        """
+        Open the Discord link in the default web browser.
+        """
+        webbrowser.open("https://discord.gg/ktdG9FZ")
 
 def scrape_avitd_data():
     """
