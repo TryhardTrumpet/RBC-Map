@@ -170,6 +170,37 @@ def get_next_update_times():
 
 columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates = load_data()
 
+        self.layout = QFormLayout(self)
+
+        self.username_edit = QLineEdit(self)
+        self.password_edit = QLineEdit(self)
+        self.password_edit.setEchoMode(QLineEdit.Password)
+
+        self.layout.addRow("Username:", self.username_edit)
+        self.layout.addRow("Password:", self.password_edit)
+
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+        self.layout.addWidget(self.buttons)
+
+        if user_info:
+            self.username_edit.setText(user_info['username'])
+            self.password_edit.setText(user_info['password'])
+
+        self.user_info = {}
+
+    def accept(self):
+        """
+        Accept the dialog and save the user information.
+        """
+        self.user_info = {
+            'username': self.username_edit.text(),
+            'password': self.password_edit.text()
+        }
+        super().accept()
+
 class CityMapApp(QMainWindow):
     def __init__(self):
         """
@@ -269,7 +300,7 @@ class CityMapApp(QMainWindow):
         self.combo_rows.addItems(rows.keys())
 
         go_button = QPushButton('Go')
-        go_button.setFixedSize(25,25)
+        go_button.setFixedSize(25, 25)
         go_button.clicked.connect(self.go_to_location)
 
         combo_go_layout.addWidget(self.combo_columns)
@@ -332,8 +363,11 @@ class CityMapApp(QMainWindow):
 
         character_buttons_layout = QHBoxLayout()
         new_button = QPushButton('New')
+        new_button.clicked.connect(self.add_user)
         modify_button = QPushButton('Modify')
+        modify_button.clicked.connect(self.modify_user)
         delete_button = QPushButton('Delete')
+        # Connect to delete_user method (to be implemented)
         character_buttons_layout.addWidget(new_button)
         character_buttons_layout.addWidget(modify_button)
         character_buttons_layout.addWidget(delete_button)
@@ -784,6 +818,26 @@ class CityMapApp(QMainWindow):
         Open the Discord link in the default web browser.
         """
         webbrowser.open("https://discord.gg/ktdG9FZ")
+
+    def add_user(self):
+        """
+        Open the UserDialog to add a new user.
+        """
+        dialog = UserDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            user_info = dialog.user_info
+            # Here you can add the code to save the user_info to your database or application
+
+    def modify_user(self):
+        """
+        Open the UserDialog to modify an existing user.
+        """
+        # For demonstration, we pass a sample user_info dictionary to the dialog
+        sample_user_info = {"username": "sample_user", "password": "sample_pass"}
+        dialog = UserDialog(self, sample_user_info)
+        if dialog.exec_() == QDialog.Accepted:
+            user_info = dialog.user_info
+            # Here you can add the code to update the user_info in your database or application
 
 def scrape_avitd_data():
     """
