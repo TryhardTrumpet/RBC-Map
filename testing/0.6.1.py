@@ -589,7 +589,7 @@ class CityMapApp(QMainWindow):
         distances = []
         for loc in locations:
             lx, ly = loc
-            dist = abs(lx - x) + abs(ly - y)
+            dist = max(abs(lx - x), abs(ly - y))  # Using Chebyshev distance
             distances.append((dist, (lx, ly)))
         distances.sort()
         return distances
@@ -729,7 +729,7 @@ class CityMapApp(QMainWindow):
         Returns:
             int: AP cost of moving from start to end.
         """
-        return max(abs(start[0] - end[0]), abs(start[1] - end[1]))
+        return max(abs(start[0] - end[0]), abs(start[1] - end[1]))  # Using Chebyshev distance
 
     def update_info_frame(self):
         """
