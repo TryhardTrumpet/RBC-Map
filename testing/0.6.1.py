@@ -44,7 +44,7 @@ from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QComboBox, QLabel, QFrame, QSizePolicy
+    QPushButton, QComboBox, QLabel, QFrame, QSizePolicy, QLineEdit
 )
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QFontMetrics, QPen
 from PyQt5.QtCore import QUrl, Qt
@@ -111,19 +111,25 @@ def load_data():
 
     cursor.execute("SELECT * FROM banks")
     banks_data = cursor.fetchall()
-    banks_coordinates = [(columns[col], rows[row]) for _, col, row in banks_data]
+    banks_coordinates = [(columns[col] + 1, rows[row] + 1) for _, col, row in banks_data]
 
     cursor.execute("SELECT * FROM taverns")
     taverns_data = cursor.fetchall()
-    taverns_coordinates = {name: (columns.get(col), rows.get(row)) for _, col, row, name in taverns_data}
+    taverns_coordinates = {name: (columns.get(col) + 1 if columns.get(col) is not None else None,
+                                  rows.get(row) + 1 if rows.get(row) is not None else None)
+                           for _, col, row, name in taverns_data}
 
     cursor.execute("SELECT * FROM transits")
     transits_data = cursor.fetchall()
-    transits_coordinates = {name: (columns.get(col), rows.get(row)) for _, col, row, name in transits_data}
+    transits_coordinates = {name: (columns.get(col) + 1 if columns.get(col) is not None else None,
+                                   rows.get(row) + 1 if rows.get(row) is not None else None)
+                            for _, col, row, name in transits_data}
 
     cursor.execute("SELECT * FROM userbuildings")
     user_buildings_data = cursor.fetchall()
-    user_buildings_coordinates = {name: (columns.get(col), rows.get(row)) for _, name, col, row in user_buildings_data}
+    user_buildings_coordinates = {name: (columns.get(col) + 1 if columns.get(col) is not None else None,
+                                         rows.get(row) + 1 if rows.get(row) is not None else None)
+                                  for _, name, col, row in user_buildings_data}
 
     cursor.execute("SELECT * FROM color_mappings")
     color_mappings_data = cursor.fetchall()
@@ -131,11 +137,15 @@ def load_data():
 
     cursor.execute("SELECT * FROM shops")
     shops_data = cursor.fetchall()
-    shops_coordinates = {name: (columns.get(col), rows.get(row)) for _, name, col, row, next_update in shops_data}
+    shops_coordinates = {name: (columns.get(col) + 1 if columns.get(col) is not None else None,
+                                rows.get(row) + 1 if rows.get(row) is not None else None)
+                         for _, name, col, row, next_update in shops_data}
 
     cursor.execute("SELECT * FROM guilds")
     guilds_data = cursor.fetchall()
-    guilds_coordinates = {name: (columns.get(col), rows.get(row)) for _, name, col, row, next_update in guilds_data}
+    guilds_coordinates = {name: (columns.get(col) + 1 if columns.get(col) is not None else None,
+                                 rows.get(row) + 1 if rows.get(row) is not None else None)
+                          for _, name, col, row, next_update in guilds_data}
 
     connection.close()
 
@@ -169,37 +179,6 @@ def get_next_update_times():
     return guilds_next_update, shops_next_update
 
 columns, rows, banks_coordinates, taverns_coordinates, transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates = load_data()
-
-        self.layout = QFormLayout(self)
-
-        self.username_edit = QLineEdit(self)
-        self.password_edit = QLineEdit(self)
-        self.password_edit.setEchoMode(QLineEdit.Password)
-
-        self.layout.addRow("Username:", self.username_edit)
-        self.layout.addRow("Password:", self.password_edit)
-
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
-        self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
-
-        self.layout.addWidget(self.buttons)
-
-        if user_info:
-            self.username_edit.setText(user_info['username'])
-            self.password_edit.setText(user_info['password'])
-
-        self.user_info = {}
-
-    def accept(self):
-        """
-        Accept the dialog and save the user information.
-        """
-        self.user_info = {
-            'username': self.username_edit.text(),
-            'password': self.password_edit.text()
-        }
-        super().accept()
 
 class CityMapApp(QMainWindow):
     def __init__(self):
@@ -300,7 +279,7 @@ class CityMapApp(QMainWindow):
         self.combo_rows.addItems(rows.keys())
 
         go_button = QPushButton('Go')
-        go_button.setFixedSize(25, 25)
+        go_button.setFixedSize(25,25)
         go_button.clicked.connect(self.go_to_location)
 
         combo_go_layout.addWidget(self.combo_columns)
@@ -363,11 +342,8 @@ class CityMapApp(QMainWindow):
 
         character_buttons_layout = QHBoxLayout()
         new_button = QPushButton('New')
-        new_button.clicked.connect(self.add_user)
         modify_button = QPushButton('Modify')
-        modify_button.clicked.connect(self.modify_user)
         delete_button = QPushButton('Delete')
-        # Connect to delete_user method (to be implemented)
         character_buttons_layout.addWidget(new_button)
         character_buttons_layout.addWidget(modify_button)
         character_buttons_layout.addWidget(delete_button)
@@ -517,26 +493,26 @@ class CityMapApp(QMainWindow):
 
         # Draw special locations
         for (column_index, row_index) in banks_coordinates:
-            draw_location(column_index + 1, row_index + 1, self.color_mappings["bank"], "Bank")
+            draw_location(column_index, row_index, self.color_mappings["bank"], "Bank")
 
         for name, (column_index, row_index) in taverns_coordinates.items():
-            draw_location(column_index + 1, row_index + 1, self.color_mappings["tavern"], name)
+            draw_location(column_index, row_index, self.color_mappings["tavern"], name)
 
         for name, (column_index, row_index) in transits_coordinates.items():
-            draw_location(column_index + 1, row_index + 1, self.color_mappings["transit"], name)
+            draw_location(column_index, row_index, self.color_mappings["transit"], name)
 
         for name, (column_index, row_index) in user_buildings_coordinates.items():
-            draw_location(column_index + 1, row_index + 1, self.color_mappings["user_building"], name)
+            draw_location(column_index, row_index, self.color_mappings["user_building"], name)
 
         for name, (column_index, row_index) in shops_coordinates.items():
             if column_index is not None and row_index is not None:
-                draw_location(column_index + 1, row_index + 1, self.color_mappings["shop"], name)
+                draw_location(column_index, row_index, self.color_mappings["shop"], name)
             else:
                 print(f"Skipping shop '{name}' due to missing coordinates")
 
         for name, (column_index, row_index) in guilds_coordinates.items():
             if column_index is not None and row_index is not None:
-                draw_location(column_index + 1, row_index + 1, self.color_mappings["guild"], name)
+                draw_location(column_index, row_index, self.color_mappings["guild"], name)
             else:
                 print(f"Skipping guild '{name}' due to missing coordinates")
 
@@ -554,8 +530,8 @@ class CityMapApp(QMainWindow):
             painter.drawLine(
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
-                (nearest_tavern[0] - self.column_start + 1) * block_size + block_size // 2,
-                (nearest_tavern[1] - self.row_start + 1) * block_size // 2
+                (nearest_tavern[0] - self.column_start) * block_size + block_size // 2,
+                (nearest_tavern[1] - self.row_start) * block_size + block_size // 2
             )
 
         if nearest_bank:
@@ -564,8 +540,8 @@ class CityMapApp(QMainWindow):
             painter.drawLine(
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
-                (nearest_bank[0] - self.column_start + 1) * block_size + block_size // 2,
-                (nearest_bank[1] - self.row_start + 1) * block_size // 2
+                (nearest_bank[0] - self.column_start) * block_size + block_size // 2,
+                (nearest_bank[1] - self.row_start) * block_size + block_size // 2
             )
 
         if nearest_transit:
@@ -574,8 +550,8 @@ class CityMapApp(QMainWindow):
             painter.drawLine(
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
-                (nearest_transit[0] - self.column_start + 1) * block_size + block_size // 2,
-                (nearest_transit[1] - self.row_start + 1) * block_size // 2
+                (nearest_transit[0] - self.column_start) * block_size + block_size // 2,
+                (nearest_transit[1] - self.row_start) * block_size + block_size // 2
             )
 
         # Draw destination line
@@ -585,7 +561,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (self.destination[0] - self.column_start) * block_size + block_size // 2,
-                (self.destination[1] - self.row_start) * block_size // 2
+                (self.destination[1] - self.row_start) * block_size + block_size // 2
             )
 
         painter.end()
@@ -744,7 +720,7 @@ class CityMapApp(QMainWindow):
 
     def calculate_ap_cost(self, start, end):
         """
-        Calculate the AP cost of moving from start to end.
+        Calculate the AP cost of moving from start to end using the Chebyshev distance.
 
         Args:
             start (tuple): Starting coordinates (x, y).
@@ -753,7 +729,7 @@ class CityMapApp(QMainWindow):
         Returns:
             int: AP cost of moving from start to end.
         """
-        return abs(start[0] - end[0]) + abs(start[1] - end[1])
+        return max(abs(start[0] - end[0]), abs(start[1] - end[1]))
 
     def update_info_frame(self):
         """
@@ -771,14 +747,14 @@ class CityMapApp(QMainWindow):
             tavern_coords = nearest_tavern[0][1]
             tavern_name = next(name for name, coords in taverns_coordinates.items() if coords == tavern_coords)
             tavern_ap_cost = self.calculate_ap_cost((current_x, current_y), tavern_coords)
-            tavern_intersection = self.get_intersection_name(tavern_coords)
+            tavern_intersection = self.get_intersection_name((tavern_coords[0] - 1, tavern_coords[1] - 1))
             self.tavern_label.setText(f"{tavern_name}\n{tavern_intersection}\nAP: {tavern_ap_cost}")
 
         # Get details for nearest bank
         if nearest_bank:
             bank_coords = nearest_bank[0][1]
             bank_ap_cost = self.calculate_ap_cost((current_x, current_y), bank_coords)
-            bank_intersection = self.get_intersection_name(bank_coords)
+            bank_intersection = self.get_intersection_name((bank_coords[0] - 1, bank_coords[1] - 1))
             self.bank_label.setText(f"OmniBank\n{bank_intersection}\nAP: {bank_ap_cost}")
 
         # Get details for nearest transit
@@ -786,14 +762,14 @@ class CityMapApp(QMainWindow):
             transit_coords = nearest_transit[0][1]
             transit_name = next(name for name, coords in transits_coordinates.items() if coords == transit_coords)
             transit_ap_cost = self.calculate_ap_cost((current_x, current_y), transit_coords)
-            transit_intersection = self.get_intersection_name(transit_coords)
+            transit_intersection = self.get_intersection_name((transit_coords[0] - 1, transit_coords[1] - 1))
             self.transit_label.setText(f"{transit_name}\n{transit_intersection}\nAP: {transit_ap_cost}")
 
         # Get details for set destination
         if self.destination:
             destination_coords = self.destination
             destination_ap_cost = self.calculate_ap_cost((current_x, current_y), destination_coords)
-            destination_intersection = self.get_intersection_name(destination_coords)
+            destination_intersection = self.get_intersection_name((destination_coords[0] - 1, destination_coords[1] - 1))
             self.destination_label.setText(f"Destination\n{destination_intersection}\nAP: {destination_ap_cost}")
         else:
             self.destination_label.setText("No Destination Set")
@@ -818,26 +794,6 @@ class CityMapApp(QMainWindow):
         Open the Discord link in the default web browser.
         """
         webbrowser.open("https://discord.gg/ktdG9FZ")
-
-    def add_user(self):
-        """
-        Open the UserDialog to add a new user.
-        """
-        dialog = UserDialog(self)
-        if dialog.exec_() == QDialog.Accepted:
-            user_info = dialog.user_info
-            # Here you can add the code to save the user_info to your database or application
-
-    def modify_user(self):
-        """
-        Open the UserDialog to modify an existing user.
-        """
-        # For demonstration, we pass a sample user_info dictionary to the dialog
-        sample_user_info = {"username": "sample_user", "password": "sample_pass"}
-        dialog = UserDialog(self, sample_user_info)
-        if dialog.exec_() == QDialog.Accepted:
-            user_info = dialog.user_info
-            # Here you can add the code to update the user_info in your database or application
 
 def scrape_avitd_data():
     """
