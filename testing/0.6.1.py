@@ -109,9 +109,9 @@ def load_data():
     rows_data = cursor.fetchall()
     rows = {name: coordinate for _, name, coordinate in rows_data}
 
-    cursor.execute("SELECT * FROM banks")
+    cursor.execute("SELECT `Column`, `Row` FROM banks")
     banks_data = cursor.fetchall()
-    banks_coordinates = [(columns[col] + 1, rows[row] + 1) for _, col, row in banks_data]
+    banks_coordinates = [(columns[col] + 1, rows[row] + 1) for col, row in banks_data]
 
     cursor.execute("SELECT * FROM taverns")
     taverns_data = cursor.fetchall()

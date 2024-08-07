@@ -93,7 +93,7 @@ def load_data():
 
     Returns:
         tuple: Contains columns, rows, banks_coordinates, taverns_coordinates,
-               transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates, places_of_interest_coordinates
+               transits_coordinates, user_buildings_coordinates, color_mappings, shops_coordinates, guilds_coordinates
     """
     connection = connect_to_database()
     if not connection:
@@ -111,7 +111,7 @@ def load_data():
 
     cursor.execute("SELECT `Column`, `Row` FROM banks")
     banks_data = cursor.fetchall()
-    banks_coordinates = [("OmniBank", columns[col] + 1, rows[row] + 1) for col, row in banks_data if col in columns and row in rows]
+    banks_coordinates = [(columns[col] + 1, rows[row] + 1) for col, row in banks_data]
 
     cursor.execute("SELECT * FROM taverns")
     taverns_data = cursor.fetchall()
@@ -495,8 +495,8 @@ class CityMapApp(QMainWindow):
                     painter.drawText(text_x, text_y, label_text)
 
         # Draw special locations
-        for name, (column_index, row_index) in banks_coordinates:
-            draw_location(column_index, row_index, self.color_mappings["bank"], name)
+        for (column_index, row_index) in banks_coordinates:
+            draw_location(column_index, row_index, self.color_mappings["bank"], "Bank")
 
         for name, (column_index, row_index) in taverns_coordinates.items():
             draw_location(column_index, row_index, self.color_mappings["tavern"], name)
@@ -540,7 +540,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (nearest_tavern[0] - self.column_start) * block_size + block_size // 2,
-                (nearest_tavern[1] - self.row_start) * block_size // 2
+                (nearest_tavern[1] - self.row_start) * block_size + block_size // 2
             )
 
         if nearest_bank:
@@ -550,7 +550,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (nearest_bank[0] - self.column_start) * block_size + block_size // 2,
-                (nearest_bank[1] - self.row_start) * block_size // 2
+                (nearest_bank[1] - self.row_start) * block_size + block_size // 2
             )
 
         if nearest_transit:
@@ -560,7 +560,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (nearest_transit[0] - self.column_start) * block_size + block_size // 2,
-                (nearest_transit[1] - self.row_start) * block_size // 2
+                (nearest_transit[1] - self.row_start) * block_size + block_size // 2
             )
 
         # Draw destination line
@@ -570,7 +570,7 @@ class CityMapApp(QMainWindow):
                 (current_x - self.column_start) * block_size + block_size // 2,
                 (current_y - self.row_start) * block_size + block_size // 2,
                 (self.destination[0] - self.column_start) * block_size + block_size // 2,
-                (self.destination[1] - self.row_start) * block_size // 2
+                (self.destination[1] - self.row_start) * block_size + block_size // 2
             )
 
         painter.end()
@@ -778,8 +778,7 @@ class CityMapApp(QMainWindow):
         if self.destination:
             destination_coords = self.destination
             destination_ap_cost = self.calculate_ap_cost((current_x, current_y), destination_coords)
-            destination_intersection = self.get_intersection_name(
-                (destination_coords[0] - 1, destination_coords[1] - 1))
+            destination_intersection = self.get_intersection_name((destination_coords[0] - 1, destination_coords[1] - 1))
             self.destination_label.setText(f"Destination\n{destination_intersection}\nAP: {destination_ap_cost}")
         else:
             self.destination_label.setText("No Destination Set")
